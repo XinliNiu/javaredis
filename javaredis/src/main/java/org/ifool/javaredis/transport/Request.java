@@ -2,27 +2,91 @@ package org.ifool.javaredis.transport;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.ifool.javaredis.utils.ByteUtil;
 import org.ifool.javaredis.utils.Constants;
+
+/**
+ * 
+ * @author xlniu
+ * 
+ *
+ * <p> 报文格式：
+ * 
+ * 
+ * <p> | 8字节id   |1字节opcode|4字节key长度| key | 4字节value长度(可能没有) | value(可能没有)
+ * 
+ * 
+ * <p> | -------- |  -  | ---- |  ----???----- | ---- | ----????----
+ */
 
 public class Request {
 
 	public static AtomicLong idGenerator = new AtomicLong(0);
 	
+	public byte[] toBytes() {
+		int len = 8 + 1 + 4 ;
+		int keyLen = key.getBytes().length;
+		len = len + keyLen;
+		
+		int valueLen = 0;
+		if(data != null) {
+			valueLen = data.length;
+			len = len + 4 + valueLen;
+		}
+		
+		if(op == Constants.OP_SET || op == Constants.OP_SETNX || op == Constants.OP_SETEX || op == Constants.OP_EXPIRE) {
+			len = len + 8;
+		}
+		byte[] message = new byte[len];
+		ByteUtil.long2bytes(id, message, 0);
+		message[8] = op;
+		ByteUtil.int2bytes(keyLen, message, 9);
+		System.arraycopy(key.getBytes(), 0, message, 13 , keyLen);
+		if(valueLen != 0) {
+			ByteUtil.int2bytes(valueLen, message, 13+keyLen);
+			System.arraycopy(data, 0, message, 13+keyLen+4, valueLen);
+		}
+		return message;
+	}
+	
+	public Request(byte[] message) {
+		if(message.length < 14) {
+			throw new RuntimeException();
+		}
+		int currentPointer = 0;
+		this.id = ByteUtil.bytes2long(message, currentPointer);
+		currentPointer += 8;
+		this.op = message[currentPointer++];
+		int keyLen = ByteUtil.bytes2int(message, currentPointer);
+		currentPointer += 4;
+		
+		this.key = new String(message, currentPointer, keyLen);
+		currentPointer += keyLen;
+		
+		
+		if(op == Constants.OP_SET || op == Constants.OP_SETNX || op == Constants.OP_SETEX) {
+			int valueLen = ByteUtil.bytes2int(message, currentPointer);
+			currentPointer += 4;
+			this.data = new byte[valueLen];
+			System.arraycopy(message, currentPointer, this.data, 0, valueLen);
+			currentPointer += valueLen;
+		}
+	
+	}
+	
 	//id主要供远程调用
-	public Request(String op, String key, byte[] data, long expireSeconds) {
+	public Request(String op, String key, byte[] data) {
 		this.id = idGenerator.getAndIncrement();
 		this.op = Constants.operationMap.get(op);
 		this.key = key;
 		this.data = data;
-		this.setExpireSeconds(expireSeconds);
 	}
 	//本地的可以固定一个id，减少性能损耗
-	public Request(long id, String op, String key, byte[] data, long expireSeconds) {
+	public Request(long id, String op, String key, byte[] data) {
 		this.id = id;
 		this.op = Constants.operationMap.get(op);
 		this.key = key;
 		this.data = data;
-		this.setExpireSeconds(expireSeconds);
 	}
 	public long getId() {
 		return id;
@@ -48,15 +112,9 @@ public class Request {
 	public void setData(byte[] data) {
 		this.data = data;
 	}
-	public long getExpireSeconds() {
-		return expireSeconds;
-	}
-	public void setExpireSeconds(long expireSeconds) {
-		this.expireSeconds = expireSeconds;
-	}
+
 	private long id;
 	private byte op;
 	private String key;
 	private byte[] data;
-	private long expireSeconds;
 }

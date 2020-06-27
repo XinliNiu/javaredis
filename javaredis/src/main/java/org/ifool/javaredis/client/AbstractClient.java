@@ -10,59 +10,56 @@ public abstract class AbstractClient implements Client {
 
 	private Transport transport;
 
-	public String set(String key, byte[] value, long expireSeconds) {
-		Request req = new Request("set", key, value, expireSeconds);
-		Response res = transport.send(req);
-		if(res != null) {
-			if(res.getErrorCode() == 0) {
-				return Constants.SUCCESS;
-			} else {
-				return "error";
-			}
-		}
+	public Transport getTransport() {
+		return transport;
 	}
 
-	public String setnx(String key, byte[] value, long expireSeconds) {
-		Request req = new Request("setnx", key, value, expireSeconds);
-		Response res = transport.send(req);
-		if(res != null) {
-			if(res.getErrorCode() == 0) {
-				return "
-			}
-		}
+
+
+	public void setTransport(Transport transport) {
+		this.transport = transport;
 	}
 
-	public String setex(String key, byte[] value, long expireSeconds) {
-		Request req = new Request("setex", key, value, expireSeconds);
+
+
+	public byte set(String key, byte[] value) {
+		Request req = new Request("set", key, value);
 		Response res = transport.send(req);
 		if(res != null) {
-			
+			byte errorCode = res.getErrorCode();
+			return errorCode;
 		}
+		return Constants.ERROR_CODE_UNKNOWN;
 	}
+
+
 
 	public byte[] get(String key) {
+		Request req = new Request("get", key, null);
+		Response res = transport.send(req);
+		if(res != null) {
+			byte errorCode = res.getErrorCode();
+			if(errorCode == 0) {
+				return res.getData();
+			}
+		}
+		return null;
 		
 	}
 
-	public boolean exists(String key) {
-		// TODO Auto-generated method stub
-		return false;
+
+
+
+	public byte del(String key) {
+		Request req = new Request("get", key, null);
+		Response res = transport.send(req);
+		if(res != null) {
+			byte errorCode = res.getErrorCode();
+			return errorCode;
+		}
+		return Constants.ERROR_CODE_UNKNOWN;
 	}
 
-	public long expire(String key, long expireSeconds) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	public String del(String key) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	public long ttl(String key) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
 	
 
 
